@@ -1,8 +1,10 @@
 from fastapi import FastAPI, Request, Depends, Query, Form, status, Cookie, Response
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from datetime import datetime
 import os
 
 from app.models import init_db, get_db, Decision, AlertRule, Alert, User, SessionToken
@@ -37,6 +39,13 @@ from app.summarizer import generate_summary, format_summary_for_display
 from app.slack import send_slack_alert, send_webhook, generate_webhook_payload
 from app.comparison import find_similar_decisions, track_beneficiary_trends, find_all_recurring_beneficiaries, format_comparison
 from app.newsletter import generate_newsletter, format_newsletter_html, format_newsletter_text
+from app.quotas import can_generate_summary, record_summary_usage, get_remaining_summaries
+from app.rate_limiter import rate_limit_middleware
+from app.suggestions import suggest_alert_rules
+from app.webhook_worker import deliver_webhooks_for_alert, run_webhook_delivery
+
+# Register middleware after all imports
+app.middleware("http")(rate_limit_middleware)
 
 # --- Auth Routes ---
 
@@ -315,12 +324,39 @@ async def create_advanced_alert_rule(
 # --- Smart Summaries ---
 
 @app.get("/api/decisions/{decision_id}/summary")
-async def get_decision_summary(decision_id: int, db: Session = Depends(get_db)):
+async def get_decision_summary(
+    request: Request,
+    decision_id: int,
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(request)
+    role = user.role if user else "free"
+    user_id = user.id if user else 0
+
+    # Check quota
+    if not can_generate_summary(user_id, role, db):
+        remaining = get_remaining_summaries(user_id, role, db)
+        return JSONResponse(
+            status_code=429,
+            content={
+                "error": "Daily summary quota exceeded.",
+                "upgrade_url": "/pricing",
+                "remaining": remaining,
+            },
+            headers={
+                "X-RateLimit-Remaining": str(remaining),
+                "X-RateLimit-Reset": str(int(datetime.utcnow().timestamp()) + 86400),
+            },
+        )
+
     decision = db.query(Decision).get(decision_id)
     if not decision:
         return JSONResponse(status_code=404, content={"error": "Decision not found"})
-    
+
     summary = generate_summary(decision.raw_text or "", decision.title)
+    record_summary_usage(user_id, db)
+    remaining = get_remaining_summaries(user_id, role, db)
+
     return {
         "decision_id": decision_id,
         "summary": {
@@ -335,6 +371,7 @@ async def get_decision_summary(decision_id: int, db: Session = Depends(get_db)):
             "context": summary.context,
         },
         "formatted": format_summary_for_display(summary),
+        "remaining": remaining,
     }
 
 # --- Slack / Webhook ---
@@ -418,6 +455,59 @@ async def get_recurring_beneficiaries(
     return {"recurring": results}
 
 # --- Newsletter ---
+
+class NewsletterSubscriberCreate(BaseModel):
+    email: str
+    frequency: str = "weekly"
+
+@app.post("/api/newsletter/subscribe")
+async def newsletter_subscribe(data: NewsletterSubscriberCreate, db: Session = Depends(get_db)):
+    """Subscribe to newsletter."""
+    from app.models import NewsletterSubscriber
+    existing = db.query(NewsletterSubscriber).filter_by(email=data.email).first()
+    if existing:
+        existing.active = True
+        existing.frequency = data.frequency
+        db.commit()
+        return {"success": True, "message": "Subscription updated"}
+    
+    sub = NewsletterSubscriber(email=data.email, frequency=data.frequency)
+    db.add(sub)
+    db.commit()
+    return {"success": True, "message": "Subscribed successfully"}
+
+@app.post("/api/newsletter/unsubscribe")
+async def newsletter_unsubscribe(email: str = Form(...), db: Session = Depends(get_db)):
+    """Unsubscribe from newsletter."""
+    from app.models import NewsletterSubscriber
+    sub = db.query(NewsletterSubscriber).filter_by(email=email).first()
+    if sub:
+        sub.active = False
+        db.commit()
+        return {"success": True, "message": "Unsubscribed"}
+    return JSONResponse(status_code=404, content={"error": "Email not found"})
+
+@app.get("/newsletter/preview", response_class=HTMLResponse)
+async def newsletter_preview(request: Request, days: int = Query(7), db: Session = Depends(get_db)):
+    """Preview current newsletter content."""
+    newsletter = generate_newsletter(days=days)
+    html = format_newsletter_html(newsletter)
+    return HTMLResponse(content=html)
+
+@app.get("/api/newsletter/subscribers")
+async def list_subscribers(db: Session = Depends(get_db)):
+    """List active subscribers (admin only)."""
+    from app.models import NewsletterSubscriber
+    subs = db.query(NewsletterSubscriber).filter_by(active=True).all()
+    return [
+        {
+            "id": s.id,
+            "email": s.email,
+            "frequency": s.frequency,
+            "subscribed_at": s.subscribed_at.isoformat() if s.subscribed_at else None,
+        }
+        for s in subs
+    ]
 
 @app.get("/api/newsletter")
 async def api_newsletter(days: int = Query(7)):

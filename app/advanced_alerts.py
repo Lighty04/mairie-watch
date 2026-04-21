@@ -1,9 +1,87 @@
 """Advanced alert matching with boolean logic, amount thresholds, and exclusions."""
 
 import re
-from typing import Optional
+from typing import Optional, List, Dict
 from app.models import Decision, AlertRule, SessionLocal
 from app.summarizer import generate_summary
+
+def _split_sentences(text: str) -> List[str]:
+    """Split text into sentences, handling French punctuation."""
+    # Match sentence-ending punctuation followed by space or end
+    pattern = r'(?<=[.!?])\s+(?=[A-ZÀ-ÿ])|(?<=[.!?])$'
+    return [s.strip() for s in re.split(pattern, text) if s.strip()]
+
+def extract_keyword_context(text: str, keyword: str, max_occurrences: int = 3) -> List[Dict]:
+    """Extract 2 sentences before and after each keyword match.
+    
+    Returns list of dicts: {keyword, before, match, after, position}
+    """
+    text_lower = text.lower()
+    kw_lower = keyword.lower()
+    sentences = _split_sentences(text)
+    results = []
+    
+    # Build a sentence index map for quick lookup
+    sentence_ranges = []
+    pos = 0
+    for sent in sentences:
+        start = text_lower.find(sent.lower(), pos)
+        if start == -1:
+            start = pos
+        end = start + len(sent)
+        sentence_ranges.append((start, end, sent))
+        pos = end
+    
+    # Find all keyword occurrences
+    idx = 0
+    for _ in range(max_occurrences):
+        idx = text_lower.find(kw_lower, idx)
+        if idx == -1:
+            break
+        
+        # Find which sentence contains the keyword
+        sent_idx = None
+        for i, (start, end, sent) in enumerate(sentence_ranges):
+            if start <= idx < end:
+                sent_idx = i
+                break
+        
+        if sent_idx is None:
+            idx += len(kw_lower)
+            continue
+        
+        # Get 2 sentences before and after
+        before_start = max(0, sent_idx - 2)
+        after_end = min(len(sentences), sent_idx + 3)
+        
+        before_sents = sentences[before_start:sent_idx]
+        after_sents = sentences[sent_idx + 1:after_end]
+        match_sent = sentences[sent_idx]
+        
+        # Highlight keyword in the match sentence
+        # Find keyword position in original case sentence
+        ms_lower = match_sent.lower()
+        kw_pos = ms_lower.find(kw_lower)
+        if kw_pos >= 0:
+            highlighted = (
+                match_sent[:kw_pos] +
+                f"<mark>{match_sent[kw_pos:kw_pos + len(keyword)]}</mark>" +
+                match_sent[kw_pos + len(keyword):]
+            )
+        else:
+            highlighted = match_sent
+        
+        results.append({
+            "keyword": keyword,
+            "before": " ".join(before_sents),
+            "match": highlighted,
+            "after": " ".join(after_sents),
+            "position": idx,
+        })
+        
+        idx += len(kw_lower)
+    
+    return results
 
 def match_amount_threshold(text: str, threshold: float, operator: str = "gt") -> bool:
     """Check if a decision contains an amount matching the threshold.

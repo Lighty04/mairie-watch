@@ -14,8 +14,11 @@
         .panel { background: white; padding: 1.25rem; border-radius: 8px; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
         .panel h2 { margin-top: 0; font-size: 1.1rem; }
         form { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: flex-end; }
-        input, select { padding: 0.5rem; border: 1px solid #d0d5dd; border-radius: 6px; font-size: 0.9rem; }
+        input, select, textarea { padding: 0.5rem; border: 1px solid #d0d5dd; border-radius: 6px; font-size: 0.9rem; font-family: inherit; }
+        textarea { min-width: 300px; min-height: 80px; resize: vertical; }
         button { padding: 0.5rem 1rem; background: #1a1a2e; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
+        button.secondary { background: #4f46e5; }
+        button.toggle { background: #e5e7eb; color: #1a1a2e; }
         .rule-list { margin-top: 1rem; }
         .rule-item { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem; background: #f8f9fa; border-radius: 6px; margin-bottom: 0.4rem; }
         .rule-item button { background: #dc2626; font-size: 0.8rem; padding: 0.3rem 0.6rem; }
@@ -24,6 +27,20 @@
         .alert-item a { color: #1a1a2e; text-decoration: none; }
         .alert-item a:hover { text-decoration: underline; }
         .alert-meta { font-size: 0.8rem; color: #5a6a7f; }
+        .advanced-fields { display: none; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb; }
+        .advanced-fields.visible { display: block; }
+        .field-group { margin-bottom: 1rem; }
+        .field-group label { display: block; font-weight: 500; margin-bottom: 0.3rem; font-size: 0.85rem; }
+        .field-group .help-text { color: #5a6a7f; font-size: 0.8rem; margin-top: 0.2rem; }
+        .arrondissements-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.3rem; max-width: 300px; }
+        .arrondissements-grid label { display: flex; align-items: center; gap: 0.3rem; font-size: 0.85rem; cursor: pointer; }
+        .arrondissements-grid input { margin: 0; }
+        .amount-row { display: flex; gap: 0.5rem; align-items: center; }
+        .amount-row input { width: 120px; }
+        .amount-row select { width: 80px; }
+        .delivery-status { font-size: 0.75rem; color: #5a6a7f; margin-top: 0.3rem; }
+        .delivery-status.ok { color: #16a34a; }
+        .delivery-status.fail { color: #dc2626; }
     </style>
 </head>
 <body>
@@ -33,16 +50,90 @@
     <nav>
         <a href="/">📋 Décisions</a>
         <a href="/alerts">🔔 Alertes</a>
+        <a href="/pricing">💎 Tarifs</a>
     </nav>
 
     <div class="panel">
         <h2>Nouvelle règle d'alerte</h2>
-        <form hx-post="/api/alert-rules" hx-target=".rule-list" hx-swap="beforeend">
+        <form hx-post="/api/alert-rules/advanced" hx-target=".rule-list" hx-swap="beforeend">
             <input type="text" name="name" placeholder="Nom de l'alerte" required />
             <input type="text" name="keywords" placeholder="Mots-clés (séparés par virgule)" />
             <input type="text" name="categories" placeholder="Catégories (séparés par virgule)" />
             <button type="submit">Créer</button>
+            <button type="button" class="toggle" onclick="toggleAdvanced()">⚙️ Mode avancé</button>
         </form>
+
+        <div id="advanced-fields" class="advanced-fields">
+            <div class="field-group">
+                <label>Requête booléenne (avancé)</label>
+                <textarea name="boolean_query" placeholder="subvention AND (sport OR culture)"></textarea>
+                <div class="help-text">
+                    <strong>Exemples :</strong><br>
+                    subvention AND (sport OR culture)<br>
+                    "marché public" NOT "marché forain"
+                </div>
+            </div>
+
+            <div class="field-group">
+                <label>Mots-clés à exclure</label>
+                <textarea name="exclusion_keywords" placeholder="forain, temporaire, test"></textarea>
+                <div class="help-text">Séparés par des virgules. Ces mots excluront les décisions correspondantes.</div>
+            </div>
+
+            <div class="field-group">
+                <label>Seuil de montant</label>
+                <div class="amount-row">
+                    <select name="amount_operator">
+                        <option value="gt">></option>
+                        <option value="lt"><</option>
+                        <option value="gte">>=</option>
+                        <option value="lte"><=</option>
+                        <option value="eq">=</option>
+                    </select>
+                    <input type="number" name="amount_threshold" placeholder="10000" />
+                    <span>€</span>
+                </div>
+            </div>
+
+            <div class="field-group">
+                <label>Fenêtre temporelle</label>
+                <select name="time_window">
+                    <option value="all">Tout le temps</option>
+                    <option value="7">7 derniers jours</option>
+                    <option value="30">30 derniers jours</option>
+                    <option value="90">3 derniers mois</option>
+                </select>
+            </div>
+
+            <div class="field-group">
+                <label>Arrondissements</label>
+                <div class="arrondissements-grid">
+                    {% for a in range(1, 21) %}
+                    <label>
+                        <input type="checkbox" name="arrondissements" value="{{ a }}" />
+                        {{ a }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="field-group">
+                <label>Webhook URL (pour alertes)</label>
+                <input type="url" name="webhook_url" placeholder="https://hooks.example.com/..." style="min-width: 300px;" />
+            </div>
+
+            <div class="field-group">
+                <label>Slack Webhook URL</label>
+                <input type="url" name="slack_webhook_url" placeholder="https://hooks.slack.com/..." style="min-width: 300px;" />
+            </div>
+        </div>
+
+        <script>
+        function toggleAdvanced() {
+            const el = document.getElementById('advanced-fields');
+            el.classList.toggle('visible');
+        }
+        </script>
 
         <div class="rule-list">
             {% for rule in rules %}
@@ -51,6 +142,13 @@
                     <strong>{{ rule.name }}</strong>
                     {% if rule.keywords %}• Mots: {{ rule.keywords|join(", ") }}{% endif %}
                     {% if rule.categories %}• Cat: {{ rule.categories|join(", ") }}{% endif %}
+                    {% if rule.arrondissements %}• Arr: {{ rule.arrondissements|join(", ") }}{% endif %}
+                    {% if rule.webhook_url %}
+                    <div class="delivery-status ok">✓ Webhook configuré</div>
+                    {% endif %}
+                    {% if rule.slack_webhook_url %}
+                    <div class="delivery-status ok">✓ Slack configuré</div>
+                    {% endif %}
                 </div>
                 <button hx-delete="/api/alert-rules/{{ rule.id }}" hx-target="#rule-{{ rule.id }}" hx-swap="outerHTML">Supprimer</button>
             </div>

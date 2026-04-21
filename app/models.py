@@ -73,6 +73,8 @@ class AlertRule(Base):
     keywords = Column(JSON, default=list)  # list of strings
     categories = Column(JSON, default=list)  # list of category strings
     arrondissements = Column(JSON, default=list)  # list of int 1-20
+    webhook_url = Column(String(512))
+    slack_webhook_url = Column(String(512))
     active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     metadata_json = Column(JSON, default=dict)  # advanced rules: amount_threshold, etc.
@@ -87,9 +89,37 @@ class Alert(Base):
     decision_id = Column(Integer, ForeignKey("decisions.id"), nullable=False, index=True)
     sent_at = Column(DateTime, default=datetime.utcnow)
     seen = Column(Boolean, default=False)
+    webhook_delivered = Column(Boolean, default=False)
 
     decision = relationship("Decision", back_populates="alerts")
     rule = relationship("AlertRule", back_populates="alerts")
+
+class SummaryUsage(Base):
+    __tablename__ = "summary_usage"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, nullable=False, index=True)
+    date = Column(String(10), nullable=False)  # "2026-04-21"
+    count = Column(Integer, default=0)
+
+class ApiUsage(Base):
+    __tablename__ = "api_usage"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, nullable=False, index=True)
+    date = Column(String(10), nullable=False)
+    endpoint = Column(String(128))
+    count = Column(Integer, default=0)
+
+class NewsletterSubscriber(Base):
+    __tablename__ = "newsletter_subscribers"
+
+    id = Column(Integer, primary_key=True)
+    email = Column(String(128), unique=True, nullable=False, index=True)
+    frequency = Column(String(16), default="weekly")  # daily, weekly
+    active = Column(Boolean, default=True)
+    subscribed_at = Column(DateTime, default=datetime.utcnow)
+    last_sent = Column(DateTime)
 
 def init_db():
     Base.metadata.create_all(bind=engine)

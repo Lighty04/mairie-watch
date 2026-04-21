@@ -2,92 +2,164 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Tarifs — MairieWatch</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MairieWatch — Tarifs</title>
     <style>
-        body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; background: #f5f7fa; color: #1a1a2e; }
-        h1 { font-size: 1.7rem; text-align: center; }
-        .subtitle { text-align: center; color: #5a6a7f; margin-bottom: 2rem; }
-        .plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; }
-        .plan { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: center; }
-        .plan.pro { border: 2px solid #1a1a2e; }
-        .plan h2 { margin-top: 0; font-size: 1.2rem; }
-        .price { font-size: 2.2rem; font-weight: 700; }
-        .price span { font-size: 1rem; color: #5a6a7f; font-weight: 400; }
-        .features { text-align: left; margin: 1.5rem 0; }
-        .features li { margin-bottom: 0.5rem; list-style: none; }
-        .features li::before { content: "✓"; color: #059669; margin-right: 0.5rem; }
-        .features li.x::before { content: "✗"; color: #dc2626; }
-        button { width: 100%; padding: 0.7rem; background: #1a1a2e; color: white; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; }
-        button.free { background: #e9ecef; color: #495057; }
-        .badge { display: inline-block; padding: 0.2rem 0.6rem; background: #1a1a2e; color: white; border-radius: 12px; font-size: 0.7rem; font-weight: 600; }
+        :root { --accent: #4f46e5; --accent-light: #6366f1; --bg: #0f0f1a; --surface: #1a1a2e; --text: #e2e8f0; --muted: #94a3b8; --border: #2d2d44; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1rem; }
+        header { text-align: center; margin-bottom: 3rem; }
+        header h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+        header p { color: var(--muted); font-size: 1.1rem; }
+        .tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 3rem; }
+        .tier { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; position: relative; transition: transform 0.2s, box-shadow 0.2s; }
+        .tier:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(79, 70, 229, 0.15); }
+        .tier.popular { border-color: var(--accent); }
+        .badge { position: absolute; top: -10px; right: 1rem; background: var(--accent); color: white; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+        .tier-name { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.25rem; }
+        .tier-price { font-size: 2.5rem; font-weight: 700; margin: 0.5rem 0; }
+        .tier-price span { font-size: 0.9rem; font-weight: 400; color: var(--muted); }
+        .tier-desc { color: var(--muted); font-size: 0.9rem; margin-bottom: 1rem; }
+        .features { list-style: none; margin-bottom: 1.5rem; }
+        .features li { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0; font-size: 0.9rem; }
+        .features li::before { content: "✓"; color: #16a34a; font-weight: bold; }
+        .features li.missing::before { content: "×"; color: #dc2626; }
+        .btn { display: block; width: 100%; padding: 0.75rem; border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer; text-align: center; text-decoration: none; transition: background 0.2s; }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-primary:hover { background: var(--accent-light); }
+        .btn-outline { background: transparent; color: var(--text); border: 1px solid var(--border); }
+        .btn-outline:hover { border-color: var(--accent); }
+        .compare { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; overflow-x: auto; }
+        .compare h2 { font-size: 1.2rem; margin-bottom: 1rem; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--border); }
+        th { color: var(--muted); font-weight: 500; }
+        td { color: var(--text); }
+        td.check { color: #16a34a; font-weight: bold; }
+        td.cross { color: #dc2626; }
+        nav { display: flex; gap: 1rem; margin-bottom: 2rem; justify-content: center; }
+        nav a { color: var(--muted); text-decoration: none; }
+        nav a:hover { color: var(--text); }
+        @media (max-width: 768px) { .tiers { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
-    <h1>💰 Tarifs MairieWatch</h1>
-    <p class="subtitle">Choisissez le plan adapté à vos besoins</p>
+    <div class="container">
+        <nav>
+            <a href="/">📋 Décisions</a>
+            <a href="/alerts">🔔 Alertes</a>
+            <a href="/pricing">💎 Tarifs</a>
+        </nav>
 
-    <div class="plans">
-        <div class="plan">
-            <h2>Gratuit</h2>
-            <div class="price">€0<span>/mois</span></div>
-            <ul class="features">
-                <li>Paris uniquement</li>
-                <li>3 règles d'alerte</li>
-                <li>Digest quotidien (24h de délai)</li>
-                <li>Recherche basique</li>
-                <li>3 résumés intelligents/jour</li>
-                <li class="x">Filtres avancés</li>
-                <li class="x">API</li>
-                <li class="x">Multi-villes</li>
-            </ul>
-            <button class="free" onclick="location.href='/login'">Commencer</button>
+        <header>
+            <h1>💎 Choisissez votre plan</h1>
+            <p>De la surveillance gratuite aux outils professionnels pour votre équipe</p>
+        </header>
+
+        <div class="tiers">
+            <!-- Free -->
+            <div class="tier">
+                <div class="tier-name">Gratuit</div>
+                <div class="tier-price">0€<span> / mois</span></div>
+                <div class="tier-desc">Pour découvrir MairieWatch</div>
+                <ul class="features">
+                    <li>Paris uniquement</li>
+                    <li>3 règles d'alerte</li>
+                    <li>Digest quotidien (24h délai)</li>
+                    <li>Recherche basique</li>
+                    <li>3 résumés intelligents/jour</li>
+                    <li class="missing">Filtres avancés</li>
+                    <li class="missing">Export CSV</li>
+                    <li class="missing">API</li>
+                    <li class="missing">Slack / Webhooks</li>
+                </ul>
+                <a href="/" class="btn btn-outline">Continuer gratuitement</a>
+            </div>
+
+            <!-- Pro -->
+            <div class="tier popular">
+                <div class="badge">Le plus populaire</div>
+                <div class="tier-name">Pro</div>
+                <div class="tier-price">39€<span> / mois</span></div>
+                <div class="tier-desc">Pour les professionnels</div>
+                <ul class="features">
+                    <li>Tout le plan Gratuit</li>
+                    <li>Règles d'alerte illimitées</li>
+                    <li>Alertes immédiates</li>
+                    <li>Filtres avancés (booléen, montant, temps)</li>
+                    <li>Résumés illimités</li>
+                    <li>Export CSV</li>
+                    <li>API : 100 appels/jour</li>
+                    <li class="missing">Slack / Webhooks</li>
+                    <li class="missing">Outil de comparaison</li>
+                </ul>
+                <a href="#" class="btn btn-primary" onclick="alert('Stripe checkout à venir')">Passer Pro</a>
+            </div>
+
+            <!-- Team -->
+            <div class="tier">
+                <div class="tier-name">Team</div>
+                <div class="tier-price">99€<span> / mois</span></div>
+                <div class="tier-desc">Pour les équipes</div>
+                <ul class="features">
+                    <li>Tout le plan Pro</li>
+                    <li>Intégration Slack</li>
+                    <li>Webhooks personnalisés</li>
+                    <li>API illimitée</li>
+                    <li>5 membres d'équipe</li>
+                    <li>Outil de comparaison de décisions</li>
+                    <li>Suivi des bénéficiaires récurrents</li>
+                    <li class="missing">Marque blanche</li>
+                    <li class="missing">Sources de données personnalisées</li>
+                </ul>
+                <a href="#" class="btn btn-outline" onclick="alert('Stripe checkout à venir')">Passer Team</a>
+            </div>
+
+            <!-- Enterprise -->
+            <div class="tier">
+                <div class="tier-name">Enterprise</div>
+                <div class="tier-price">299€<span> / mois</span></div>
+                <div class="tier-desc">Pour les organisations</div>
+                <ul class="features">
+                    <li>Tout le plan Team</li>
+                    <li>Toutes les villes (au fil des expansions)</li>
+                    <li>Marque blanche</li>
+                    <li>Sources de données personnalisées</li>
+                    <li>Support dédié</li>
+                    <li>SLA garanti</li>
+                    <li>Déploiement sur-mesure</li>
+                    <li>Formation incluse</li>
+                </ul>
+                <a href="mailto:contact@mairie.watch" class="btn btn-outline">Nous contacter</a>
+            </div>
         </div>
 
-        <div class="plan pro">
-            <div class="badge">RECOMMANDÉ</div>
-            <h2>Pro</h2>
-            <div class="price">€39<span>/mois</span></div>
-            <ul class="features">
-                <li>Paris + 1 ville (Marseille/Lyon)</li>
-                <li>Alertes illimitées</li>
-                <li>Alertes immédiates</li>
-                <li>Filtres avancés (booléens, montants)</li>
-                <li>Résumés illimités</li>
-                <li>Export CSV</li>
-                <li>API: 100 appels/jour</li>
-            </ul>
-            <button onclick="location.href='/login'">Passer Pro</button>
-        </div>
-
-        <div class="plan">
-            <h2>Équipe</h2>
-            <div class="price">€99<span>/mois</span></div>
-            <ul class="features">
-                <li>Paris + 3 villes</li>
-                <li>Tout le plan Pro</li>
-                <li>Intégration Slack</li>
-                <li>Webhooks</li>
-                <li>API illimitée</li>
-                <li>5 membres d'équipe</li>
-                <li>Comparaison de décisions</li>
-                <li>Support prioritaire</li>
-            </ul>
-            <button onclick="location.href='/login'">Contactez-nous</button>
-        </div>
-
-        <div class="plan">
-            <h2>Entreprise</h2>
-            <div class="price">€299<span>/mois</span></div>
-            <ul class="features">
-                <li>Toutes les villes</li>
-                <li>Tout le plan Équipe</li>
-                <li>White-label</li>
-                <li>Sources personnalisées</li>
-                <li>Support dédié</li>
-                <li>Audit trail</li>
-                <li>SLA garanti</li>
-            </ul>
-            <button onclick="location.href='/login'">Contactez-nous</button>
+        <div class="compare">
+            <h2>📊 Comparaison détaillée</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fonctionnalité</th>
+                        <th>Gratuit</th>
+                        <th>Pro</th>
+                        <th>Team</th>
+                        <th>Enterprise</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>Alertes</td><td class="check">3</td><td class="check">∞</td><td class="check">∞</td><td class="check">∞</td></tr>
+                    <tr><td>Résumés intelligents</td><td class="check">3/jour</td><td class="check">∞</td><td class="check">∞</td><td class="check">∞</td></tr>
+                    <tr><td>Filtres avancés</td><td class="cross">×</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+                    <tr><td>Export CSV</td><td class="cross">×</td><td class="check">✓</td><td class="check">✓</td><td class="check">✓</td></tr>
+                    <tr><td>API</td><td class="cross">×</td><td class="check">100/jour</td><td class="check">∞</td><td class="check">∞</td></tr>
+                    <tr><td>Slack</td><td class="cross">×</td><td class="cross">×</td><td class="check">✓</td><td class="check">✓</td></tr>
+                    <tr><td>Webhooks</td><td class="cross">×</td><td class="cross">×</td><td class="check">✓</td><td class="check">✓</td></tr>
+                    <tr><td>Membres</td><td class="check">1</td><td class="check">1</td><td class="check">5</td><td class="check">∞</td></tr>
+                    <tr><td>Marque blanche</td><td class="cross">×</td><td class="cross">×</td><td class="cross">×</td><td class="check">✓</td></tr>
+                    <tr><td>Support</td><td>Email</td><td>Email</td><td>Prioritaire</td><td>Dédié</td></tr>
+                </tbody>
+            </table>
         </div>
     </div>
 </body>
