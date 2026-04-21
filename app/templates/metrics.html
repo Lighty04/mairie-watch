@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Métriques — MairieWatch</title>
+    <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem; background: #f5f7fa; color: #1a1a2e; }
+        h1 { font-size: 1.5rem; margin-bottom: 0.3rem; }
+        .subtitle { color: #5a6a7f; margin-bottom: 1.5rem; }
+        nav { display: flex; gap: 1rem; margin-bottom: 1.5rem; font-size: 0.9rem; }
+        nav a { color: #1a1a2e; text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+        .card { background: white; padding: 1.25rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+        .card h3 { margin-top: 0; font-size: 1rem; color: #5a6a7f; }
+        .card .value { font-size: 2rem; font-weight: 700; color: #1a1a2e; }
+        .card .delta { font-size: 0.85rem; color: #059669; }
+        .chart-container { background: white; padding: 1.25rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 1rem; }
+        .chart-container h3 { margin-top: 0; font-size: 1rem; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+        th, td { padding: 0.5rem; text-align: left; border-bottom: 1px solid #e5e7eb; }
+        th { font-weight: 600; color: #5a6a7f; }
+        .loading { color: #999; font-style: italic; }
+    </style>
+</head>
+<body>
+    <h1>📊 Métriques</h1>
+    <p class="subtitle">Performance et couverture du système</p>
+
+    <nav>
+        <a href="/">📋 Décisions</a>
+        <a href="/alerts">🔔 Alertes</a>
+        <a href="/metrics">📊 Métriques</a>
+    </nav>
+
+    <div class="grid" hx-get="/api/metrics" hx-trigger="load" hx-target="#metrics-data" hx-swap="none">
+        <div class="card">
+            <h3>Décisions capturées (30j)</h3>
+            <div class="value" id="m-total">—</div>
+            <div class="delta" id="m-rate">—</div>
+        </div>
+        <div class="card">
+            <h3>Taux de traitement</h3>
+            <div class="value" id="m-processed">—</div>
+            <div class="delta">% des PDFs extraits</div>
+        </div>
+        <div class="card">
+            <h3>Taux de catégorisation</h3>
+            <div class="value" id="m-categorized">—</div>
+            <div class="delta">% classés correctement</div>
+        </div>
+        <div class="card">
+            <h3>Temps moyen de capture</h3>
+            <div class="value" id="m-time">—</div>
+            <div class="delta">heures publication → alerte</div>
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <h3>Répartition par catégorie</h3>
+        <canvas id="categoryChart" height="200"></canvas>
+    </div>
+
+    <div id="metrics-data" style="display:none;"></div>
+
+    <script>
+        document.body.addEventListener('htmx:afterRequest', function(e) {
+            if (e.detail.target.id === 'metrics-data') {
+                try {
+                    const data = JSON.parse(e.detail.xhr.responseText);
+                    const cov = data.coverage;
+                    document.getElementById('m-total').textContent = cov.total_captured;
+                    document.getElementById('m-rate').textContent = cov.processing_rate + '% traités';
+                    document.getElementById('m-processed').textContent = cov.processing_rate + '%';
+                    document.getElementById('m-categorized').textContent = cov.categorization_rate + '%';
+                    document.getElementById('m-time').textContent = cov.avg_time_to_capture_hours ? cov.avg_time_to_capture_hours + 'h' : 'N/A';
+                    
+                    // Chart
+                    const ctx = document.getElementById('categoryChart').getContext('2d');
+                    const cats = Object.entries(cov.category_breakdown || {});
+                    new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: cats.map(c => c[0]),
+                            datasets: [{
+                                label: 'Décisions',
+                                data: cats.map(c => c[1]),
+                                backgroundColor: '#1a1a2e',
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: { y: { beginAtZero: true } }
+                        }
+                    });
+                } catch(err) {}
+            }
+        });
+    </script>
+</body>
+</html>

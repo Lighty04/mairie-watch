@@ -1,16 +1,21 @@
-from fastapi import FastAPI, Request, Depends, Query, Form, status
+from fastapi import FastAPI, Request, Depends, Query, Form, status, Cookie, Response
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 import os
 
-from app.models import init_db, get_db, Decision, AlertRule, Alert
+from app.models import init_db, get_db, Decision, AlertRule, Alert, User, SessionToken
 from app.scraper import scrape_and_store
 from app.extractor import process_pending_decisions
 from app.classifier import classify_pending_decisions
 from app.alerts import run_alerts_for_new_decisions
 from app.scheduler import start_scheduler, run_pipeline
+from app.metrics import get_all_metrics
+from app.auth import (
+    create_user, authenticate_user, create_session, get_user_by_token,
+    hash_password, can_create_alert, count_user_alert_rules
+)
 
 # Ensure database is initialized before first request
 init_db()
@@ -18,6 +23,66 @@ start_scheduler()
 
 app = FastAPI(title="MairieWatch")
 templates = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
+
+def get_current_user(request: Request) -> User:
+    """Get current user from session cookie."""
+    token = request.cookies.get("session")
+    if token:
+        return get_user_by_token(token)
+    return None
+
+# --- Auth Routes ---
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    return templates.TemplateResponse("login.html", {"request": request})
+
+@app.post("/api/auth/register")
+async def register(
+    response: Response,
+    email: str = Form(...),
+    password: str = Form(...),
+    name: str = Form(""),
+):
+    try:
+        user = create_user(email=email, password=password, name=name or None)
+        token = create_session(user.id)
+        response.set_cookie(key="session", value=token, httponly=True, max_age=2592000)
+        return {"success": True, "user": {"id": user.id, "email": user.email, "role": user.role}}
+    except Exception as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
+
+@app.post("/api/auth/login")
+async def login(
+    response: Response,
+    email: str = Form(...),
+    password: str = Form(...),
+):
+    user = authenticate_user(email, password)
+    if not user:
+        return JSONResponse(status_code=401, content={"error": "Invalid credentials"})
+    token = create_session(user.id)
+    response.set_cookie(key="session", value=token, httponly=True, max_age=2592000)
+    return {"success": True, "user": {"id": user.id, "email": user.email, "role": user.role}}
+
+@app.post("/api/auth/logout")
+async def logout(response: Response):
+    response.delete_cookie(key="session")
+    return {"success": True}
+
+@app.get("/api/auth/me")
+async def me(request: Request):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse(status_code=401, content={"error": "Not authenticated"})
+    return {
+        "id": user.id,
+        "email": user.email,
+        "name": user.name,
+        "role": user.role,
+        "alert_count": count_user_alert_rules(user.id),
+        "alert_limit": 3 if user.role == "free" else 999,
+    }
 
 # --- Dashboard ---
 
@@ -188,6 +253,16 @@ async def mark_alert_seen(alert_id: int, db: Session = Depends(get_db)):
     alert.seen = True
     db.commit()
     return {"seen": True}
+
+# --- Metrics ---
+
+@app.get("/api/metrics")
+async def api_metrics():
+    return get_all_metrics()
+
+@app.get("/metrics", response_class=HTMLResponse)
+async def metrics_dashboard(request: Request):
+    return templates.TemplateResponse("metrics.html", {"request": request})
 
 # --- Pipeline & Stats ---
 

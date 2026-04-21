@@ -1,19 +1,10 @@
-import pdfplumber
 import os
 from app.models import Decision, SessionLocal
+from app.ocr import smart_extract
 
 def extract_text_from_pdf(filepath: str) -> str:
-    """Extract text from a PDF using pdfplumber."""
-    text_parts = []
-    try:
-        with pdfplumber.open(filepath) as pdf:
-            for page in pdf.pages:
-                page_text = page.extract_text()
-                if page_text:
-                    text_parts.append(page_text)
-    except Exception as e:
-        return f"[EXTRACTION_ERROR: {e}]"
-    return "\n".join(text_parts)
+    """Extract text from a PDF using smart extraction (pdfplumber + OCR fallback)."""
+    return smart_extract(filepath)
 
 def process_pending_decisions(limit: int = 50):
     """Extract text from all unprocessed decisions."""
