@@ -3,8 +3,11 @@ from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from datetime import datetime
 import os
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://mairie:mairie@localhost:5432/mairie_watch")
-engine = create_engine(DATABASE_URL)
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    DATABASE_URL = "sqlite:///./data/mairie_watch.db"
+
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {})
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 
@@ -24,10 +27,6 @@ class Decision(Base):
     processed = Column(Boolean, default=False)
 
     alerts = relationship("Alert", back_populates="decision", lazy="dynamic")
-
-    __table_args__ = (
-        Index("ix_decisions_fulltext", func.to_tsvector("french", raw_text), postgresql_using="gin"),
-    )
 
 class AlertRule(Base):
     __tablename__ = "alert_rules"

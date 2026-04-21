@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>MairieWatch — Alertes</title>
+    <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem; background: #f5f7fa; color: #1a1a2e; }
+        h1 { font-size: 1.5rem; }
+        .subtitle { color: #5a6a7f; margin-bottom: 1rem; }
+        nav { display: flex; gap: 1rem; margin-bottom: 1.5rem; font-size: 0.9rem; }
+        nav a { color: #1a1a2e; text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        .panel { background: white; padding: 1.25rem; border-radius: 8px; margin-bottom: 1rem; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+        .panel h2 { margin-top: 0; font-size: 1.1rem; }
+        form { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: flex-end; }
+        input, select { padding: 0.5rem; border: 1px solid #d0d5dd; border-radius: 6px; font-size: 0.9rem; }
+        button { padding: 0.5rem 1rem; background: #1a1a2e; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
+        .rule-list { margin-top: 1rem; }
+        .rule-item { display: flex; justify-content: space-between; align-items: center; padding: 0.6rem; background: #f8f9fa; border-radius: 6px; margin-bottom: 0.4rem; }
+        .rule-item button { background: #dc2626; font-size: 0.8rem; padding: 0.3rem 0.6rem; }
+        .alert-item { padding: 0.75rem; border-bottom: 1px solid #e5e7eb; }
+        .alert-item.unseen { background: #eff6ff; }
+        .alert-item a { color: #1a1a2e; text-decoration: none; }
+        .alert-item a:hover { text-decoration: underline; }
+        .alert-meta { font-size: 0.8rem; color: #5a6a7f; }
+    </style>
+</head>
+<body>
+    <h1>🔔 Alertes</h1>
+    <p class="subtitle">Configurez vos règles d'alerte et consultez les notifications</p>
+
+    <nav>
+        <a href="/">📋 Décisions</a>
+        <a href="/alerts">🔔 Alertes</a>
+    </nav>
+
+    <div class="panel">
+        <h2>Nouvelle règle d'alerte</h2>
+        <form hx-post="/api/alert-rules" hx-target=".rule-list" hx-swap="beforeend">
+            <input type="text" name="name" placeholder="Nom de l'alerte" required />
+            <input type="text" name="keywords" placeholder="Mots-clés (séparés par virgule)" />
+            <input type="text" name="categories" placeholder="Catégories (séparés par virgule)" />
+            <button type="submit">Créer</button>
+        </form>
+
+        <div class="rule-list">
+            {% for rule in rules %}
+            <div class="rule-item" id="rule-{{ rule.id }}">
+                <div>
+                    <strong>{{ rule.name }}</strong>
+                    {% if rule.keywords %}• Mots: {{ rule.keywords|join(", ") }}{% endif %}
+                    {% if rule.categories %}• Cat: {{ rule.categories|join(", ") }}{% endif %}
+                </div>
+                <button hx-delete="/api/alert-rules/{{ rule.id }}" hx-target="#rule-{{ rule.id }}" hx-swap="outerHTML">Supprimer</button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="panel">
+        <h2>Dernières alertes</h2>
+        {% for alert in alerts %}
+        <div class="alert-item {{ 'unseen' if not alert.seen else '' }}">
+            <a href="/decision/{{ alert.decision_id }}">{{ alert.decision.title if alert.decision else "Décision #" + alert.decision_id|string }}</a>
+            <div class="alert-meta">
+                Règle: {{ alert.rule.name if alert.rule else "—" }}
+                • {{ alert.sent_at.strftime("%d/%m/%Y %H:%M") if alert.sent_at else "" }}
+                {% if not alert.seen %}
+                • <button hx-post="/api/alerts/{{ alert.id }}/mark-seen" hx-target="closest .alert-item">Marquer lu</button>
+                {% endif %}
+            </div>
+        </div>
+        {% else %}
+        <p style="color:#999;">Aucune alerte pour l'instant.</p>
+        {% endfor %}
+    </div>
+</body>
+</html>

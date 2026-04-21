@@ -3,58 +3,84 @@
 <head>
     <meta charset="UTF-8">
     <title>MairieWatch — Surveillance des décisions municipales</title>
+    <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
     <style>
-        body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 2rem auto; padding: 0 1rem; background: #f8f9fa; }
-        h1 { font-size: 1.6rem; margin-bottom: 0.5rem; }
-        .subtitle { color: #666; margin-bottom: 1.5rem; }
-        .filters { background: white; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
-        .filters input, .filters select { padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; }
-        .filters button { padding: 0.5rem 1rem; background: #1a1a2e; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        .card { background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 0.75rem; }
+        * { box-sizing: border-box; }
+        body { font-family: system-ui, -apple-system, sans-serif; max-width: 1100px; margin: 0 auto; padding: 1.5rem 1rem; background: #f5f7fa; color: #1a1a2e; line-height: 1.5; }
+        h1 { font-size: 1.7rem; margin-bottom: 0.2rem; }
+        .subtitle { color: #5a6a7f; margin-bottom: 1.5rem; font-size: 0.95rem; }
+        .stats { display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+        .stat { background: white; padding: 0.75rem 1.25rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); font-size: 0.85rem; }
+        .stat strong { display: block; font-size: 1.3rem; color: #1a1a2e; }
+        .filters { background: white; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center; }
+        .filters input, .filters select { padding: 0.5rem 0.75rem; border: 1px solid #d0d5dd; border-radius: 6px; font-size: 0.9rem; }
+        .filters button { padding: 0.5rem 1rem; background: #1a1a2e; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
+        .filters a { color: #5a6a7f; text-decoration: none; font-size: 0.85rem; }
+        .card { background: white; padding: 1rem 1.25rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 0.6rem; transition: box-shadow 0.15s; }
+        .card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
         .card h3 { margin: 0 0 0.3rem; font-size: 1rem; }
         .card a { color: #1a1a2e; text-decoration: none; }
         .card a:hover { text-decoration: underline; }
-        .meta { color: #666; font-size: 0.85rem; }
-        .category { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem; font-weight: 600; background: #e9ecef; color: #495057; }
+        .meta { color: #5a6a7f; font-size: 0.8rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+        .category { display: inline-block; padding: 0.15rem 0.55rem; border-radius: 12px; font-size: 0.7rem; font-weight: 600; background: #e9ecef; color: #495057; }
+        .category.subventions { background: #d1fae5; color: #065f46; }
+        .category.contracts { background: #dbeafe; color: #1e40af; }
+        .category.appointments { background: #fce7f3; color: #9d174d; }
+        .category.urbanism { background: #fef3c7; color: #92400e; }
+        .category.environment { background: #d1fae5; color: #065f46; }
         .pagination { margin-top: 1rem; text-align: center; }
-        .pagination a { padding: 0.4rem 0.8rem; background: white; border: 1px solid #ccc; text-decoration: none; border-radius: 4px; margin: 0 0.2rem; }
+        .pagination a { padding: 0.4rem 0.8rem; background: white; border: 1px solid #d0d5dd; text-decoration: none; border-radius: 4px; margin: 0 0.15rem; font-size: 0.85rem; }
         .pagination a.active { background: #1a1a2e; color: white; border-color: #1a1a2e; }
+        nav { display: flex; gap: 1rem; margin-bottom: 1rem; font-size: 0.9rem; }
+        nav a { color: #1a1a2e; text-decoration: none; }
+        nav a:hover { text-decoration: underline; }
+        .htmx-indicator { display: none; }
+        .htmx-request .htmx-indicator { display: inline; }
+        .htmx-request.htmx-indicator { display: inline; }
     </style>
 </head>
 <body>
     <h1>MairieWatch</h1>
     <p class="subtitle">Surveillance automatisée des décisions municipales — Paris (pilot)</p>
 
-    <form class="filters" method="get" action="/">
-        <input type="text" name="q" placeholder="Recherche..." value="{{ q }}" />
+    <nav>
+        <a href="/">📋 Décisions</a>
+        <a href="/alerts">🔔 Alertes</a>
+        <a href="/api/stats" target="_blank">📊 Stats API</a>
+    </nav>
+
+    <div class="stats">
+        <div class="stat"><strong id="stat-total">—</strong>Total décisions</div>
+        <div class="stat"><strong id="stat-processed">—</strong>Traitées</div>
+        <div class="stat"><strong id="stat-categorized">—</strong>Catégorisées</div>
+        <div class="stat"><strong id="stat-alerts">—</strong>Alertes</div>
+    </div>
+
+    <form class="filters" hx-get="/partials/decisions" hx-target="#decisions" hx-trigger="submit, change from:select">
+        <input type="text" name="q" placeholder="Recherche full-text..." value="{{ q }}"
+               hx-get="/partials/decisions" hx-target="#decisions" hx-trigger="keyup changed delay:300ms, search" />
         <select name="category">
             <option value="">Toutes catégories</option>
             {% for cat in categories %}
             <option value="{{ cat }}" {% if cat == category %}selected{% endif %}>{{ cat }}</option>
             {% endfor %}
         </select>
-        <button type="submit">Filtrer</button>
+        <button type="submit">🔍 Filtrer</button>
+        <a href="/">Réinitialiser</a>
     </form>
 
-    {% for d in decisions %}
-    <div class="card">
-        <h3><a href="/decision/{{ d.id }}">{{ d.title or "Sans titre" }}</a></h3>
-        <div class="meta">
-            <span class="category">{{ d.category or "Non catégorisé" }}</span>
-            • {{ d.scraped_at.strftime("%d/%m/%Y %H:%M") if d.scraped_at else "" }}
-        </div>
+    <div id="decisions">
+        {% include "partials/decisions.html" %}
     </div>
-    {% else %}
-    <p style="color:#999;text-align:center;padding:2rem;">Aucune décision trouvée.</p>
-    {% endfor %}
 
-    {% if total > per_page %}
-    <div class="pagination">
-        {% set pages = (total / per_page)|round(0, 'ceil')|int %}
-        {% for p in range(1, pages + 1) %}
-        <a href="/?q={{ q }}&category={{ category }}&page={{ p }}" class="{% if p == page %}active{% endif %}">{{ p }}</a>
-        {% endfor %}
-    </div>
-    {% endif %}
+    <script>
+        // Load stats on page load
+        fetch('/api/stats').then(r=>r.json()).then(data=>{
+            document.getElementById('stat-total').textContent = data.total;
+            document.getElementById('stat-processed').textContent = data.processed;
+            document.getElementById('stat-categorized').textContent = data.categorized;
+            document.getElementById('stat-alerts').textContent = data.alerts;
+        });
+    </script>
 </body>
 </html>

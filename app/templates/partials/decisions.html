@@ -1,0 +1,28 @@
+{% for d in decisions %}
+<div class="card">
+    <h3><a href="/decision/{{ d.id }}">{{ d.title or "Sans titre" }}</a></h3>
+    <div class="meta">
+        {% if d.category %}
+        <span class="category {{ d.category }}">{{ d.category }}</span>
+        {% endif %}
+        <span>{{ d.scraped_at.strftime("%d/%m/%Y %H:%M") if d.scraped_at else "" }}</span>
+        {% if d.metadata_json and d.metadata_json.decision_number %}
+        <span>• {{ d.metadata_json.decision_number }}</span>
+        {% endif %}
+    </div>
+</div>
+{% else %}
+<p style="color:#999;text-align:center;padding:2rem;">Aucune décision trouvée.</p>
+{% endfor %}
+
+{% if total > per_page %}
+<div class="pagination">
+    {% set total_pages = (total / per_page)|round(0, 'ceil')|int %}
+    {% for p in range(1, total_pages + 1) %}
+    <a href="/?q={{ request.query_params.get('q', '') }}&category={{ request.query_params.get('category', '') }}&page={{ p }}"
+       class="{% if p == page %}active{% endif %}"
+       {% if p != page %}hx-get="/partials/decisions?q={{ request.query_params.get('q', '') }}&category={{ request.query_params.get('category', '') }}&page={{ p }}"
+       hx-target="#decisions"{% endif %}>{{ p }}</a>
+    {% endfor %}
+</div>
+{% endif %}
