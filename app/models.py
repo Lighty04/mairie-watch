@@ -60,6 +60,7 @@ class AlertRule(Base):
     arrondissements = Column(JSON, default=list)  # list of int 1-20
     active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    metadata_json = Column(JSON, default=dict)  # advanced rules: amount_threshold, etc.
 
     alerts = relationship("Alert", back_populates="rule", lazy="dynamic")
 

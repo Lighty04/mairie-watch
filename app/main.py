@@ -31,6 +31,10 @@ def get_current_user(request: Request) -> User:
         return get_user_by_token(token)
     return None
 
+from app.advanced_alerts import match_advanced_rule, generate_alert_email
+from app.summarizer import generate_summary, format_summary_for_display
+from app.slack import send_slack_alert, send_webhook, generate_webhook_payload
+
 # --- Auth Routes ---
 
 @app.get("/login", response_class=HTMLResponse)
@@ -253,6 +257,97 @@ async def mark_alert_seen(alert_id: int, db: Session = Depends(get_db)):
     alert.seen = True
     db.commit()
     return {"seen": True}
+
+# --- Advanced Alert Rules (Pro tier) ---
+
+@app.post("/api/alert-rules/advanced")
+async def create_advanced_alert_rule(
+    request: Request,
+    name: str = Form(...),
+    keywords: str = Form(""),
+    categories: str = Form(""),
+    arrondissements: str = Form(""),
+    amount_threshold: float = Form(None),
+    amount_operator: str = Form("gt"),
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(request)
+    if not user:
+        return JSONResponse(status_code=401, content={"error": "Authentication required"})
+    
+    # Check tier
+    if user.role == "free" and count_user_alert_rules(user.id) >= 3:
+        return JSONResponse(status_code=403, content={
+            "error": "Free tier limit reached. Upgrade to Pro for unlimited alerts.",
+            "upgrade_url": "/pricing"
+        })
+    
+    metadata = {}
+    if amount_threshold is not None:
+        metadata["amount_threshold"] = amount_threshold
+        metadata["amount_operator"] = amount_operator
+    
+    rule = AlertRule(
+        user_id=user.id,
+        name=name,
+        keywords=[k.strip() for k in keywords.split(",") if k.strip()],
+        categories=[c.strip() for c in categories.split(",") if c.strip()],
+        arrondissements=[int(a.strip()) for a in arrondissements.split(",") if a.strip().isdigit()],
+        metadata_json=metadata,
+    )
+    db.add(rule)
+    db.commit()
+    db.refresh(rule)
+    return {"id": rule.id, "name": rule.name, "tier": user.role}
+
+# --- Smart Summaries ---
+
+@app.get("/api/decisions/{decision_id}/summary")
+async def get_decision_summary(decision_id: int, db: Session = Depends(get_db)):
+    decision = db.query(Decision).get(decision_id)
+    if not decision:
+        return JSONResponse(status_code=404, content={"error": "Decision not found"})
+    
+    summary = generate_summary(decision.raw_text or "", decision.title)
+    return {
+        "decision_id": decision_id,
+        "summary": {
+            "type": summary.decision_type,
+            "recipient": summary.recipient,
+            "amount": summary.amount,
+            "amount_str": summary.amount_str,
+            "approved_by": summary.approved_by,
+            "approval_status": summary.approval_status,
+            "arrondissement": summary.arrondissement,
+            "date": summary.date,
+            "context": summary.context,
+        },
+        "formatted": format_summary_for_display(summary),
+    }
+
+# --- Slack / Webhook ---
+
+@app.post("/api/slack/test")
+async def test_slack(
+    webhook_url: str = Form(...),
+    alert_id: int = Form(...),
+):
+    success = await send_slack_alert(webhook_url, alert_id)
+    return {"sent": success}
+
+@app.post("/api/webhook/test")
+async def test_webhook(
+    webhook_url: str = Form(...),
+    alert_id: int = Form(...),
+):
+    success = await send_webhook(webhook_url, alert_id)
+    return {"sent": success}
+
+# --- Pricing ---
+
+@app.get("/pricing", response_class=HTMLResponse)
+async def pricing_page(request: Request):
+    return templates.TemplateResponse("pricing.html", {"request": request})
 
 # --- Metrics ---
 

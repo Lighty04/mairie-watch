@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Tarifs — MairieWatch</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1rem; background: #f5f7fa; color: #1a1a2e; }
+        h1 { font-size: 1.7rem; text-align: center; }
+        .subtitle { text-align: center; color: #5a6a7f; margin-bottom: 2rem; }
+        .plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; }
+        .plan { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: center; }
+        .plan.pro { border: 2px solid #1a1a2e; }
+        .plan h2 { margin-top: 0; font-size: 1.2rem; }
+        .price { font-size: 2.2rem; font-weight: 700; }
+        .price span { font-size: 1rem; color: #5a6a7f; font-weight: 400; }
+        .features { text-align: left; margin: 1.5rem 0; }
+        .features li { margin-bottom: 0.5rem; list-style: none; }
+        .features li::before { content: "✓"; color: #059669; margin-right: 0.5rem; }
+        .features li.x::before { content: "✗"; color: #dc2626; }
+        button { width: 100%; padding: 0.7rem; background: #1a1a2e; color: white; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; }
+        button.free { background: #e9ecef; color: #495057; }
+        .badge { display: inline-block; padding: 0.2rem 0.6rem; background: #1a1a2e; color: white; border-radius: 12px; font-size: 0.7rem; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <h1>💰 Tarifs MairieWatch</h1>
+    <p class="subtitle">Choisissez le plan adapté à vos besoins</p>
+
+    <div class="plans">
+        <div class="plan">
+            <h2>Gratuit</h2>
+            <div class="price">€0<span>/mois</span></div>
+            <ul class="features">
+                <li>Paris uniquement</li>
+                <li>3 règles d'alerte</li>
+                <li>Digest quotidien (24h de délai)</li>
+                <li>Recherche basique</li>
+                <li>3 résumés intelligents/jour</li>
+                <li class="x">Filtres avancés</li>
+                <li class="x">API</li>
+            </ul>
+            <button class="free" onclick="location.href='/login'">Commencer</button>
+        </div>
+
+        <div class="plan pro">
+            <div class="badge">RECOMMANDÉ</div>
+            <h2>Pro</h2>
+            <div class="price">€39<span>/mois</span></div>
+            <ul class="features">
+                <li>Paris uniquement</li>
+                <li>Alertes illimitées</li>
+                <li>Alertes immédiates</li>
+                <li>Filtres avancés (booléens, montants)</li>
+                <li>Résumés illimités</li>
+                <li>Export CSV</li>
+                <li>API: 100 appels/jour</li>
+            </ul>
+            <button onclick="location.href='/login'">Passer Pro</button>
+        </div>
+
+        <div class="plan">
+            <h2>Équipe</h2>
+            <div class="price">€99<span>/mois</span></div>
+            <ul class="features">
+                <li>Tout le plan Pro</li>
+                <li>Intégration Slack</li>
+                <li>Webhooks</li>
+                <li>API illimitée</li>
+                <li>5 membres d'équipe</li>
+                <li>Comparaison de décisions</li>
+                <li>Support prioritaire</li>
+            </ul>
+            <button onclick="location.href='/login'">Contactez-nous</button>
+        </div>
+    </div>
+</body>
+</html>
