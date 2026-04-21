@@ -34,6 +34,8 @@ def get_current_user(request: Request) -> User:
 from app.advanced_alerts import match_advanced_rule, generate_alert_email
 from app.summarizer import generate_summary, format_summary_for_display
 from app.slack import send_slack_alert, send_webhook, generate_webhook_payload
+from app.comparison import find_similar_decisions, track_beneficiary_trends, find_all_recurring_beneficiaries, format_comparison
+from app.newsletter import generate_newsletter, format_newsletter_html, format_newsletter_text
 
 # --- Auth Routes ---
 
@@ -358,6 +360,76 @@ async def api_metrics():
 @app.get("/metrics", response_class=HTMLResponse)
 async def metrics_dashboard(request: Request):
     return templates.TemplateResponse("metrics.html", {"request": request})
+
+# --- Decision Comparison & Trends (Team tier) ---
+
+@app.get("/api/decisions/{decision_id}/similar")
+async def get_similar_decisions(decision_id: int, limit: int = 5):
+    results = find_similar_decisions(decision_id, limit=limit)
+    return {
+        "decision_id": decision_id,
+        "similar": [
+            {
+                "decision_b_id": r.decision_b_id,
+                "similarity_score": r.similarity_score,
+                "common_fields": r.common_fields,
+                "differences": {k: {"from": v[0], "to": v[1]} for k, v in r.differences.items()},
+                "trend": r.trend,
+            }
+            for r in results
+        ]
+    }
+
+@app.get("/api/trends/beneficiary/{beneficiary_name}")
+async def get_beneficiary_trends(
+    beneficiary_name: str,
+    category: str = Query(None),
+    year: int = Query(None),
+):
+    result = track_beneficiary_trends(beneficiary_name, category, year)
+    return {
+        "beneficiary": result.beneficiary,
+        "category": result.category,
+        "total_amount_current_year": result.total_amount_current_year,
+        "total_amount_previous_year": result.total_amount_previous_year,
+        "year_over_year_change": result.year_over_year_change,
+        "frequency_current": result.frequency_current,
+        "frequency_previous": result.frequency_previous,
+        "anomaly": result.anomaly,
+        "decision_count": len(result.decisions),
+    }
+
+@app.get("/api/trends/recurring")
+async def get_recurring_beneficiaries(
+    category: str = Query(None),
+    min_occurrences: int = Query(2),
+):
+    results = find_all_recurring_beneficiaries(category, min_occurrences)
+    return {"recurring": results}
+
+# --- Newsletter ---
+
+@app.get("/api/newsletter")
+async def api_newsletter(days: int = Query(7)):
+    newsletter = generate_newsletter(days=days)
+    return {
+        "subject": newsletter["subject"],
+        "period": newsletter["period"],
+        "stats": newsletter["stats"],
+        "featured_decision": {
+            "id": newsletter["featured_decision"]["decision"].id if newsletter["featured_decision"] else None,
+            "title": newsletter["featured_decision"]["decision"].title if newsletter["featured_decision"] else None,
+            "score": newsletter["featured_decision"]["score"] if newsletter["featured_decision"] else 0,
+            "reasons": newsletter["featured_decision"]["reasons"] if newsletter["featured_decision"] else [],
+        },
+        "other_count": len(newsletter["other_decisions"]),
+    }
+
+@app.get("/newsletter", response_class=HTMLResponse)
+async def newsletter_page(request: Request, days: int = Query(7)):
+    newsletter = generate_newsletter(days=days)
+    html = format_newsletter_html(newsletter)
+    return HTMLResponse(content=html)
 
 # --- Pipeline & Stats ---
 
