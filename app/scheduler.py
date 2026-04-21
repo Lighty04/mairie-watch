@@ -11,7 +11,7 @@ from app.alerts import run_alerts_for_new_decisions
 
 logger = logging.getLogger("mairie-watch")
 
-async def run_pipeline():
+async def run_pipeline(use_llm: bool = False):
     """Run the full pipeline: scrape → extract → classify → alert."""
     init_db()  # Ensure tables exist (safe to call multiple times)
     logger.info("Starting pipeline: scrape")
@@ -22,9 +22,27 @@ async def run_pipeline():
     extracted = process_pending_decisions()
     logger.info(f"Extracted {extracted} PDFs")
 
-    logger.info("Classifying decisions")
-    classified = classify_pending_decisions()
-    logger.info(f"Classified {classified} decisions")
+    if use_llm:
+        from app.llm_classifier import classify_single_decision
+        logger.info("Classifying decisions with LLM")
+        db = SessionLocal()
+        try:
+            pending = (
+                db.query(Decision)
+                .filter(Decision.processed == True)
+                .filter(Decision.category == None)
+                .limit(50)
+                .all()
+            )
+            for decision in pending:
+                await classify_single_decision(decision.id)
+            logger.info(f"LLM-classified {len(pending)} decisions")
+        finally:
+            db.close()
+    else:
+        logger.info("Classifying decisions (keyword-based)")
+        classified = classify_pending_decisions()
+        logger.info(f"Classified {classified} decisions")
 
     logger.info("Running alerts")
     alerted = run_alerts_for_new_decisions()
@@ -34,7 +52,7 @@ async def run_pipeline():
         "scraped": scrape_result["scraped"],
         "new": scrape_result["new"],
         "extracted": extracted,
-        "classified": classified,
+        "classified": classified if not use_llm else len(pending),
         "alerted": alerted,
     }
 

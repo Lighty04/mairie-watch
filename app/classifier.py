@@ -90,7 +90,7 @@ def classify_text(text: str) -> tuple[str, list[str]]:
 
     return primary, subs
 
-def classify_pending_decisions(limit: int = 50):
+def classify_pending_decisions(limit: int = 50, use_llm: bool = False):
     """Classify all extracted but unclassified decisions."""
     db = SessionLocal()
     try:
