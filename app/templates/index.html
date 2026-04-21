@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>MairieWatch — Surveillance des décisions municipales</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 1000px; margin: 2rem auto; padding: 0 1rem; background: #f8f9fa; }
+        h1 { font-size: 1.6rem; margin-bottom: 0.5rem; }
+        .subtitle { color: #666; margin-bottom: 1.5rem; }
+        .filters { background: white; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
+        .filters input, .filters select { padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; }
+        .filters button { padding: 0.5rem 1rem; background: #1a1a2e; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .card { background: white; padding: 1rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 0.75rem; }
+        .card h3 { margin: 0 0 0.3rem; font-size: 1rem; }
+        .card a { color: #1a1a2e; text-decoration: none; }
+        .card a:hover { text-decoration: underline; }
+        .meta { color: #666; font-size: 0.85rem; }
+        .category { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 12px; font-size: 0.7rem; font-weight: 600; background: #e9ecef; color: #495057; }
+        .pagination { margin-top: 1rem; text-align: center; }
+        .pagination a { padding: 0.4rem 0.8rem; background: white; border: 1px solid #ccc; text-decoration: none; border-radius: 4px; margin: 0 0.2rem; }
+        .pagination a.active { background: #1a1a2e; color: white; border-color: #1a1a2e; }
+    </style>
+</head>
+<body>
+    <h1>MairieWatch</h1>
+    <p class="subtitle">Surveillance automatisée des décisions municipales — Paris (pilot)</p>
+
+    <form class="filters" method="get" action="/">
+        <input type="text" name="q" placeholder="Recherche..." value="{{ q }}" />
+        <select name="category">
+            <option value="">Toutes catégories</option>
+            {% for cat in categories %}
+            <option value="{{ cat }}" {% if cat == category %}selected{% endif %}>{{ cat }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit">Filtrer</button>
+    </form>
+
+    {% for d in decisions %}
+    <div class="card">
+        <h3><a href="/decision/{{ d.id }}">{{ d.title or "Sans titre" }}</a></h3>
+        <div class="meta">
+            <span class="category">{{ d.category or "Non catégorisé" }}</span>
+            • {{ d.scraped_at.strftime("%d/%m/%Y %H:%M") if d.scraped_at else "" }}
+        </div>
+    </div>
+    {% else %}
+    <p style="color:#999;text-align:center;padding:2rem;">Aucune décision trouvée.</p>
+    {% endfor %}
+
+    {% if total > per_page %}
+    <div class="pagination">
+        {% set pages = (total / per_page)|round(0, 'ceil')|int %}
+        {% for p in range(1, pages + 1) %}
+        <a href="/?q={{ q }}&category={{ category }}&page={{ p }}" class="{% if p == page %}active{% endif %}">{{ p }}</a>
+        {% endfor %}
+    </div>
+    {% endif %}
+</body>
+</html>

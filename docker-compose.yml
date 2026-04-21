@@ -1,0 +1,26 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: mairie
+      POSTGRES_PASSWORD: mairie
+      POSTGRES_DB: mairie_watch
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://mairie:mairie@db:5432/mairie_watch
+    volumes:
+      - ./app:/app/app
+      - ./data:/app/data
+    depends_on:
+      - db
+
+volumes:
+  pgdata:

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ decision.title or "Décision" }} — MairieWatch</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; background: #f8f9fa; }
+        a { color: #1a1a2e; }
+        .card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        h1 { margin-top: 0; font-size: 1.4rem; }
+        .meta { color: #666; font-size: 0.9rem; margin-bottom: 1rem; }
+        .category { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.75rem; font-weight: 600; background: #e9ecef; color: #495057; }
+        .text { white-space: pre-wrap; line-height: 1.6; font-size: 0.95rem; color: #333; }
+        .actions { margin-top: 1rem; }
+        .actions a { display: inline-block; padding: 0.5rem 1rem; background: #1a1a2e; color: white; text-decoration: none; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <p><a href="/">← Retour au tableau de bord</a></p>
+    <div class="card">
+        <h1>{{ decision.title or "Sans titre" }}</h1>
+        <div class="meta">
+            <span class="category">{{ decision.category or "Non catégorisé" }}</span>
+            • Scrapé le {{ decision.scraped_at.strftime("%d/%m/%Y %H:%M") if decision.scraped_at else "" }}
+            {% if decision.subcategories %}
+            <br>Sous-catégories: {{ decision.subcategories|join(", ") }}
+            {% endif %}
+        </div>
+        {% if decision.raw_text %}
+        <div class="text">{{ decision.raw_text }}</div>
+        {% else %}
+        <p style="color:#999;font-style:italic;">Texte non extrait.</p>
+        {% endif %}
+        <div class="actions">
+            <a href="{{ decision.pdf_url }}" target="_blank">📄 Voir le PDF</a>
+        </div>
+    </div>
+</body>
+</html>
