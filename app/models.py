@@ -32,17 +32,32 @@ class SessionToken(Base):
     expires_at = Column(DateTime, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+class CityConfig(Base):
+    __tablename__ = "cities"
+
+    slug = Column(String(32), primary_key=True)
+    name = Column(String(128), nullable=False)
+    name_fr = Column(String(128))
+    portal_url = Column(String(2048))
+    enabled = Column(Boolean, default=True)
+    population = Column(Integer)
+    region = Column(String(128))
+    arrondissements = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 class Decision(Base):
     __tablename__ = "decisions"
 
     id = Column(Integer, primary_key=True)
-    source_url = Column(String(2048), nullable=False, index=True)
-    pdf_url = Column(String(2048), nullable=False)
+    city = Column(String(32), default="paris", index=True)
+    source_url = Column(String(2048), index=True)
+    pdf_url = Column(String(2048))
     title = Column(Text)
     raw_text = Column(Text)
     category = Column(String(64), index=True)
     subcategories = Column(JSON, default=list)
     metadata_json = Column(JSON, default=dict)
+    external_id = Column(String(128), index=True)
     published_at = Column(DateTime, index=True)
     scraped_at = Column(DateTime, default=datetime.utcnow)
     processed = Column(Boolean, default=False)

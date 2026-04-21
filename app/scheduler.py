@@ -4,6 +4,7 @@ import logging
 from datetime import datetime
 
 from app.models import Decision, SessionLocal, init_db
+from app.city_scrapers import scrape_all_cities, get_enabled_cities
 from app.scraper import scrape_and_store
 from app.extractor import process_pending_decisions
 from app.classifier import classify_pending_decisions
@@ -11,12 +12,28 @@ from app.alerts import run_alerts_for_new_decisions
 
 logger = logging.getLogger("mairie-watch")
 
-async def run_pipeline(use_llm: bool = False):
-    """Run the full pipeline: scrape → extract → classify → alert."""
+async def run_pipeline(use_llm: bool = False, all_cities: bool = True):
+    """Run the full pipeline: scrape → extract → classify → alert.
+    
+    Args:
+        use_llm: Whether to use LLM for classification
+        all_cities: If True, scrape all enabled cities. If False, scrape Paris only.
+    """
     init_db()  # Ensure tables exist (safe to call multiple times)
-    logger.info("Starting pipeline: scrape")
-    scrape_result = await scrape_and_store(query=str(datetime.now().year))
-    logger.info(f"Scraped {scrape_result['scraped']} decisions, {scrape_result['new']} new")
+    
+    # Scrape
+    if all_cities:
+        logger.info("Starting multi-city pipeline")
+        city_results = await scrape_all_cities(limit_per_city=50)
+        total_scraped = sum(r.get("scraped", 0) for r in city_results.values())
+        total_new = sum(r.get("new", 0) for r in city_results.values())
+        logger.info(f"Scraped {total_scraped} decisions across {len(city_results)} cities, {total_new} new")
+    else:
+        logger.info("Starting Paris-only pipeline")
+        scrape_result = await scrape_and_store(query=str(datetime.now().year))
+        total_scraped = scrape_result["scraped"]
+        total_new = scrape_result["new"]
+        logger.info(f"Scraped {total_scraped} decisions, {total_new} new")
 
     logger.info("Extracting PDFs")
     extracted = process_pending_decisions()
@@ -49,11 +66,12 @@ async def run_pipeline(use_llm: bool = False):
     logger.info(f"Generated {alerted} alerts")
 
     return {
-        "scraped": scrape_result["scraped"],
-        "new": scrape_result["new"],
+        "scraped": total_scraped,
+        "new": total_new,
         "extracted": extracted,
         "classified": classified if not use_llm else len(pending),
         "alerted": alerted,
+        "cities": city_results if all_cities else {"paris": {"scraped": total_scraped, "new": total_new}},
     }
 
 scheduler = AsyncIOScheduler()

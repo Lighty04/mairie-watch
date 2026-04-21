@@ -6,6 +6,7 @@ from sqlalchemy import func
 import os
 
 from app.models import init_db, get_db, Decision, AlertRule, Alert, User, SessionToken
+from app.city_scrapers import scrape_all_cities, get_enabled_cities, get_city_config
 from app.scraper import scrape_and_store
 from app.extractor import process_pending_decisions
 from app.classifier import classify_pending_decisions
@@ -98,6 +99,7 @@ async def dashboard(
     db: Session = Depends(get_db),
     q: str = "",
     category: str = "",
+    city: str = "",
     page: int = Query(1, ge=1),
 ):
     per_page = 20
@@ -106,6 +108,8 @@ async def dashboard(
         query = query.filter(func.to_tsvector("french", Decision.raw_text).match(q))
     if category:
         query = query.filter(Decision.category == category)
+    if city:
+        query = query.filter(Decision.city == city)
     total = query.count()
     decisions = (
         query.order_by(Decision.scraped_at.desc())
@@ -114,14 +118,17 @@ async def dashboard(
         .all()
     )
     categories = [c[0] for c in db.query(Decision.category).distinct().all() if c[0]]
+    cities = [c[0] for c in db.query(Decision.city).distinct().all() if c[0]]
     return templates.TemplateResponse(
         "index.html",
         {
             "request": request,
             "decisions": decisions,
             "categories": categories,
+            "cities": cities,
             "q": q,
             "category": category,
+            "city": city,
             "page": page,
             "total": total,
             "per_page": per_page,
@@ -135,6 +142,7 @@ async def decisions_partial(
     db: Session = Depends(get_db),
     q: str = "",
     category: str = "",
+    city: str = "",
     page: int = Query(1, ge=1),
 ):
     per_page = 20
@@ -143,6 +151,8 @@ async def decisions_partial(
         query = query.filter(func.to_tsvector("french", Decision.raw_text).match(q))
     if category:
         query = query.filter(Decision.category == category)
+    if city:
+        query = query.filter(Decision.city == city)
     total = query.count()
     decisions = (
         query.order_by(Decision.scraped_at.desc())
@@ -439,12 +449,35 @@ async def api_run_pipeline():
     return result
 
 @app.get("/api/stats")
-async def api_stats(db: Session = Depends(get_db)):
-    total = db.query(Decision).count()
-    processed = db.query(Decision).filter(Decision.processed == True).count()
-    categorized = db.query(Decision).filter(Decision.category != None).count()
-    alerts = db.query(Alert).count()
+async def api_stats(db: Session = Depends(get_db), city: str = Query(None)):
+    query = db.query(Decision)
+    if city:
+        query = query.filter(Decision.city == city)
+    total = query.count()
+    processed = query.filter(Decision.processed == True).count()
+    categorized = query.filter(Decision.category != None).count()
+    alerts = db.query(Alert).join(Decision).filter(Decision.city == city).count() if city else db.query(Alert).count()
     return {"total": total, "processed": processed, "categorized": categorized, "alerts": alerts}
+
+@app.get("/api/cities")
+async def api_cities(db: Session = Depends(get_db)):
+    """Return list of cities with decision counts."""
+    city_counts = (
+        db.query(Decision.city, func.count(Decision.id))
+        .group_by(Decision.city)
+        .all()
+    )
+    return {
+        "cities": [
+            {
+                "slug": slug,
+                "name": get_city_config(slug)["name"] if get_city_config(slug) else slug,
+                "count": count,
+                "enabled": get_city_config(slug).get("enabled", True) if get_city_config(slug) else False,
+            }
+            for slug, count in city_counts
+        ]
+    }
 
 # --- Health Check ---
 

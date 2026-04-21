@@ -59,6 +59,12 @@
     <form class="filters" hx-get="/partials/decisions" hx-target="#decisions" hx-trigger="submit, change from:select">
         <input type="text" name="q" placeholder="Recherche full-text..." value="{{ q }}"
                hx-get="/partials/decisions" hx-target="#decisions" hx-trigger="keyup changed delay:300ms, search" />
+        <select name="city">
+            <option value="">Toutes les villes</option>
+            {% for c in cities %}
+            <option value="{{ c }}" {% if c == city %}selected{% endif %}>{{ c.title() }}</option>
+            {% endfor %}
+        </select>
         <select name="category">
             <option value="">Toutes catégories</option>
             {% for cat in categories %}
